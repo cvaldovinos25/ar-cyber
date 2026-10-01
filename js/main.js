@@ -16,8 +16,9 @@
 // ---------- Ajustes ----------
 const CONFIG = {
   // Tamaño de cada plano: Salcotín y premios
-  PLANE_WIDTH: 1.3,
-  PLANE_HEIGHT: 2.3,
+  PLANE_HEIGHT: 2.3,   // Salcotín
+  PRIZE_HEIGHT: 1.8,   // premio
+  INTRO_HEIGHT: 1.4,   // cartel de inicio
 
   // Cartel de inicio (2 x 1.4, a unos 3 m)
   INTRO_WIDTH: 2,
