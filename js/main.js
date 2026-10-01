@@ -15,14 +15,13 @@
 
 // ---------- Ajustes ----------
 const CONFIG = {
-  // Tamaño de cada plano: Salcotín y premios
-  PLANE_HEIGHT: 2.3,   // Salcotín
-  PRIZE_HEIGHT: 1.8,   // premio
-  INTRO_HEIGHT: 1.4,   // cartel de inicio
+  // Alto (en metros) de Salcotín y del premio. El ancho se calcula solo
+  // según la proporción de cada imagen, para que nunca se vean deformadas.
+  PLANE_HEIGHT: 2.3,
+  PRIZE_HEIGHT: 1.8,
 
   // Cartel de inicio (2 x 1.4, a unos 3 m)
-  INTRO_WIDTH: 2,
-  INTRO_HEIGHT: 1.4,
+  INTRO_HEIGHT: 1.4,          // alto del cartel (m); el ancho se calcula solo
   INTRO_DISTANCE: 3,
   INTRO_HEIGHT_OFFSET: -0.7,   // metros respecto a la cámara
 
@@ -198,11 +197,15 @@ function showError(error) {
 // ============================================================
 // 3. Escena 3D
 // ============================================================
-function makePlane(texture, width, height) {
+// crea un plano con el alto pedido y el ancho según la proporción de la imagen
+function makePlane(texture, height) {
+  const img = texture.image
+  const width = height * (img.width / img.height)
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(width, height),
     new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide, depthWrite: false })
   )
+  mesh.userData.width = width
   scene.add(mesh)
   return mesh
 }
@@ -217,12 +220,12 @@ function setupScene() {
   scene = new THREE.Scene()
   camera = new THREE.PerspectiveCamera(CONFIG.CAMERA_FOV, window.innerWidth / window.innerHeight, 0.05, 100)
 
-  intro = makePlane(textures.intro, CONFIG.INTRO_WIDTH, CONFIG.INTRO_HEIGHT)
+  intro = makePlane(textures.intro, CONFIG.INTRO_HEIGHT)
   intro.visible = false
 
   for (let i = 0; i < textures.prizes.length; i++) {
-    const mesh = makePlane(textures.salcotin, CONFIG.PLANE_WIDTH, CONFIG.PLANE_HEIGHT)
-    const prize = makePlane(textures.prizes[i], CONFIG.PLANE_WIDTH, CONFIG.PLANE_HEIGHT)
+    const mesh = makePlane(textures.salcotin, CONFIG.PLANE_HEIGHT)
+    const prize = makePlane(textures.prizes[i], CONFIG.PRIZE_HEIGHT)
     mesh.visible = false
     prize.visible = false
     prize.scale.setScalar(0)
@@ -300,8 +303,8 @@ function reservedZones() {
   const used = []
   // reservar la zona donde está el cartel de inicio (intro.png) para que nada aparezca encima
   if (introAngle !== null) {
-    const introHalfWidthDeg = angularHalfWidthDeg(CONFIG.INTRO_WIDTH, CONFIG.INTRO_DISTANCE)
-    const salcotinHalfWidthDeg = angularHalfWidthDeg(CONFIG.PLANE_WIDTH, CONFIG.RADIUS_RANGE[0])
+    const introHalfWidthDeg = angularHalfWidthDeg(intro.userData.width, CONFIG.INTRO_DISTANCE)
+    const salcotinHalfWidthDeg = angularHalfWidthDeg(salcotines[0].mesh.userData.width, CONFIG.RADIUS_RANGE[0])
     used.push({ angle: introAngle, minSepDeg: introHalfWidthDeg + salcotinHalfWidthDeg + 10 })
   }
   return used
