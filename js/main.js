@@ -57,7 +57,6 @@ const ASSETS = {
   intro: 'assets/intro.png',
   salcotin: 'assets/1.png',
   // Premio que aparece al atrapar a Salcotín.
-  // Para cambiarlo, usa 'assets/3.png' (Nenitos) o 'assets/4.png' (Huggies).
   prize: 'assets/2.png',
   confetti: ['assets/amarillo.png', 'assets/celeste.png', 'assets/rosa.png'],
 }
@@ -67,7 +66,7 @@ const HINT_MESSAGES = [
   '¡Atrapa a Salcotín cuando lo encuentres!',
 ]
 
-const PRIZE_MESSAGE = '¡Toma un pantallazo y canjea tu premio en caja!'
+const PRIZE_MESSAGE = '¡Toma un pantallazo y canjea tu premio!'
 
 const randRange = (min, max) => Math.random() * (max - min) + min
 const toRad = (deg) => (deg * Math.PI) / 180
