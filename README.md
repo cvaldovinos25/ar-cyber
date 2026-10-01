@@ -1,16 +1,14 @@
-# ¡Busca a Salcotín!
+# ¡Atrapa a Salcotín!
 
-Experiencia de realidad aumentada para el celular en la que la persona escanea un código QR, busca a Salcotín a su alrededor con la cámara y, al atraparlo, gana un premio que puede canjear en caja.
+Experiencia de realidad aumentada para el celular en la que la persona escanea un código QR, busca a Salcotín a su alrededor con la cámara y, al atraparlo, gana un premio.
 
 Funciona directo en el navegador, sin instalar ninguna app, y no depende de motores ni servicios externos: todo el código, las imágenes y la librería 3D viven en este repositorio y se publican con GitHub Pages.
-
-**Sitio:** https://cvaldovinos25.github.io/ar-swap/
 
 ## Cómo se juega
 
 1. **Pantalla de inicio.** Aparece el cartel "¡Busca a Salcotín!" sobre el fondo del proyecto. Al tocar **Comenzar**, el navegador pide permiso para usar la cámara y, en iPhone, también el movimiento del teléfono.
 2. **Búsqueda.** La cámara trasera se muestra de fondo y el cartel queda flotando frente a la persona por unos segundos. Después se encoge y lo reemplaza un texto de ayuda en la parte de abajo, que alterna entre "¡Escanea tu alrededor!" y "¡Atrapa a Salcotín cuando lo encuentres!".
-3. **Salcotín se escapa.** Salcotín flota alrededor de la persona, nunca justo enfrente. Cada 5 segundos sale corriendo a otro lugar con un salto de dibujo animado: se agacha, sale disparado en arco estirándose e inclinándose, y aterriza aplastado con un rebote. El salto es más rápido de lo que se puede seguir girando el celular, así que hay que volver a buscarlo.
+3. **Salcotín se escapa.** Salcotín flota alrededor de la persona, nunca justo enfrente. Cada 5 segundos sale corriendo a otro lugar con un salto: se agacha, sale disparado en arco estirándose e inclinándose, y aterriza aplastado con un rebote.
 4. **Termómetro.** En la esquina superior derecha, un termómetro indica qué tan cerca está: **frío** (celeste) cuando está lejos, **tibio** (amarillo) cuando está cerca de entrar en pantalla y **¡caliente!** (rojo, latiendo) cuando está a la vista.
 5. **Premio.** Al tocar a Salcotín, se encoge, aparece la imagen del premio en su lugar, sale confeti de tres colores y abajo aparece el mensaje "¡Toma un pantallazo y canjea tu premio en caja!".
 
