@@ -3,8 +3,10 @@
 //
 // Escena original:
 //   - intro.png  : cartel "¡Busca a Salcotín!" frente a la cámara
-//   - 1.png      : un Salcotín que flota alrededor y cambia de
-//                  lugar cada 5sg de forma aleatoria
+//   - 1.png      : un Salcotín que flota alrededor y cada 5 s sale
+//                  corriendo a otro lugar con un salto rápido y
+//                  caricaturesco (se agacha, se estira en el aire y
+//                  aterriza rebotando), demasiado rápido para seguirlo
 //   - Al tocarlo : se encoge, aparece el premio (ASSETS.prize)
 //     y sale confeti con una mezcla de amarillo.png, celeste.png y rosa.png
 //
@@ -30,6 +32,14 @@ const CONFIG = {
   MIN_SEPARATION_DEG: 35,      // separación mínima entre Salcotínes para que no se tapen
   MOVE_INTERVAL_MS: 5000,
 
+  // Salto caricaturesco entre un lugar y otro
+  DASH_ANTICIPATION_MS: 120,   // se agacha antes de salir
+  DASH_TRAVEL_MS: 260,         // viaje en el aire (más bajo = más rápido)
+  DASH_LAND_MS: 320,           // aterrizaje con rebote
+  DASH_HOP_HEIGHT: [0.5, 1.1], // altura del arco del salto (m)
+  DASH_MIN_DEG: 80,            // cuánto tiene que alejarse como mínimo (grados alrededor de la persona)
+  DASH_LEAN_RAD: 0.45,         // cuánto se inclina hacia donde corre
+
   CAMERA_FOV: 60,
   SMOOTHING: 0.3,              // 0 a 1: más bajo = movimiento más suave
   SHOW_POINTER: false,         // true = flecha que indica dónde hay un Salcotín
@@ -46,6 +56,8 @@ const CONFIG = {
 const ASSETS = {
   intro: 'assets/intro.png',
   salcotin: 'assets/1.png',
+  // Premio que aparece al atrapar a Salcotín.
+  // Para cambiarlo, usa 'assets/3.png' (Nenitos) o 'assets/4.png' (Huggies).
   prize: 'assets/2.png',
   confetti: ['assets/amarillo.png', 'assets/celeste.png', 'assets/rosa.png'],
 }
@@ -261,32 +273,129 @@ function angularHalfWidthDeg(width, distance) {
   return (Math.atan2(width / 2, distance) * 180) / Math.PI
 }
 
-function moveAllToRandomPoints() {
+// elige un punto nuevo fuera de la vista de la persona y lejos del lugar actual
+function pickDestination(s, used) {
   const front = forwardAngle()
   const halfExcluded = toRad(CONFIG.FRONT_EXCLUSION_DEG)
   const allowedSpan = 2 * Math.PI - 2 * halfExcluded
-  const used = []
+  const current = s.mesh.visible ? Math.atan2(s.mesh.position.x, s.mesh.position.z) : null
 
+  let angle
+  for (let tries = 0; tries < 25; tries++) {
+    angle = front + halfExcluded + Math.random() * allowedSpan
+    const farFromOthers = used.every((u) => angleDiff(u.angle, angle) > toRad(u.minSepDeg))
+    const farFromCurrent = current === null || angleDiff(current, angle) > toRad(CONFIG.DASH_MIN_DEG)
+    if (farFromOthers && farFromCurrent) break
+  }
+  used.push({ angle, minSepDeg: CONFIG.MIN_SEPARATION_DEG })
+
+  return {
+    angle,
+    radius: randRange(CONFIG.RADIUS_RANGE[0], CONFIG.RADIUS_RANGE[1]),
+    y: randRange(CONFIG.HEIGHT_RANGE[0], CONFIG.HEIGHT_RANGE[1]) - CONFIG.EYE_HEIGHT,
+  }
+}
+
+function reservedZones() {
+  const used = []
   // reservar la zona donde está el cartel de inicio (intro.png) para que nada aparezca encima
   if (introAngle !== null) {
     const introHalfWidthDeg = angularHalfWidthDeg(CONFIG.INTRO_WIDTH, CONFIG.INTRO_DISTANCE)
     const salcotinHalfWidthDeg = angularHalfWidthDeg(CONFIG.PLANE_WIDTH, CONFIG.RADIUS_RANGE[0])
     used.push({ angle: introAngle, minSepDeg: introHalfWidthDeg + salcotinHalfWidthDeg + 10 })
   }
+  return used
+}
 
+// primera ubicación: aparece directo, sin salto
+function placeAllAtRandomPoints() {
+  const used = reservedZones()
   for (const s of salcotines) {
-    let angle
-    for (let tries = 0; tries < 15; tries++) {
-      angle = front + halfExcluded + Math.random() * allowedSpan
-      if (used.every((u) => angleDiff(u.angle, angle) > toRad(u.minSepDeg))) break
-    }
-    used.push({ angle, minSepDeg: CONFIG.MIN_SEPARATION_DEG })
-
-    const radius = randRange(CONFIG.RADIUS_RANGE[0], CONFIG.RADIUS_RANGE[1])
-    const y = randRange(CONFIG.HEIGHT_RANGE[0], CONFIG.HEIGHT_RANGE[1]) - CONFIG.EYE_HEIGHT
-    s.mesh.position.set(Math.sin(angle) * radius, y, Math.cos(angle) * radius)
+    const d = pickDestination(s, used)
+    s.mesh.position.set(Math.sin(d.angle) * d.radius, d.y, Math.cos(d.angle) * d.radius)
     s.prize.position.copy(s.mesh.position)
   }
+}
+
+// cada 5 s: salta a otro lugar
+function dashAllToRandomPoints() {
+  if (swapped) return
+  const used = reservedZones()
+  for (const s of salcotines) {
+    if (!s.mesh.visible || s.mesh.userData.dashing) continue
+    dash(s, pickDestination(s, used))
+  }
+}
+
+const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+const easeOutBack = (t) => 1 + 2.70158 * Math.pow(t - 1, 3) + 1.70158 * Math.pow(t - 1, 2)
+
+// salto caricaturesco: agacharse -> volar en arco estirado -> aplastarse al caer y rebotar
+function dash(s, dest) {
+  const mesh = s.mesh
+  const ud = mesh.userData
+  ud.dashing = true
+  ud.animating = true   // pausa el "latido" mientras salta
+
+  const fromAngle = Math.atan2(mesh.position.x, mesh.position.z)
+  const fromRadius = Math.hypot(mesh.position.x, mesh.position.z)
+  const fromY = mesh.position.y
+  // camino más corto alrededor de la persona (nunca atraviesa por el medio)
+  let delta = dest.angle - fromAngle
+  delta = Math.atan2(Math.sin(delta), Math.cos(delta))
+  const hop = randRange(CONFIG.DASH_HOP_HEIGHT[0], CONFIG.DASH_HOP_HEIGHT[1])
+
+  const A = CONFIG.DASH_ANTICIPATION_MS
+  const T = CONFIG.DASH_TRAVEL_MS
+  const L = CONFIG.DASH_LAND_MS
+  const start = performance.now()
+  const prev = new THREE.Vector3().copy(mesh.position)
+  const camSpace = new THREE.Vector3()
+
+  function step(now) {
+    if (swapped) { ud.dashing = false; ud.lean = 0; return }
+    const e = now - start
+
+    if (e < A) {
+      // 1) se agacha (anticipación)
+      const k = Math.sin((e / A) * (Math.PI / 2))
+      mesh.scale.set(1 + 0.25 * k, 1 - 0.3 * k, 1)
+      ud.lean = 0
+    } else if (e < A + T) {
+      // 2) sale disparado en arco, estirado e inclinado hacia donde va
+      const t = (e - A) / T
+      const p = easeInOutCubic(t)
+      const angle = fromAngle + delta * p
+      const radius = fromRadius + (dest.radius - fromRadius) * p
+      const y = fromY + (dest.y - fromY) * p + Math.sin(Math.PI * t) * hop
+      prev.copy(mesh.position)
+      mesh.position.set(Math.sin(angle) * radius, y, Math.cos(angle) * radius)
+
+      const stretch = Math.sin(Math.PI * t)
+      mesh.scale.set(1 - 0.35 * stretch, 1 + 0.4 * stretch, 1)
+
+      // inclinación según hacia qué lado de la pantalla se mueve
+      camSpace.copy(mesh.position).sub(prev).transformDirection(camera.matrixWorldInverse)
+      const dir = camSpace.x === 0 ? 0 : Math.sign(camSpace.x)
+      ud.lean = -dir * CONFIG.DASH_LEAN_RAD * stretch
+    } else if (e < A + T + L) {
+      // 3) aterriza aplastado y rebota hasta su tamaño normal
+      mesh.position.set(Math.sin(dest.angle) * dest.radius, dest.y, Math.cos(dest.angle) * dest.radius)
+      const t = (e - A - T) / L
+      const squash = 1 - easeOutBack(t)        // 1 -> 0 con un pequeño sobrepaso
+      mesh.scale.set(1 + 0.3 * squash, 1 - 0.35 * squash, 1)
+      ud.lean = 0
+    } else {
+      mesh.scale.set(1, 1, 1)
+      s.prize.position.copy(mesh.position)
+      ud.lean = 0
+      ud.dashing = false
+      ud.animating = false
+      return
+    }
+    requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
 }
 
 // ---------- Animación de escala ----------
@@ -580,6 +689,7 @@ function loop(now) {
   for (const s of salcotines) {
     if (s.mesh.visible) {
       faceCamera(s.mesh)
+      if (s.mesh.userData.lean) s.mesh.rotateZ(s.mesh.userData.lean)
       // "latido" como el original: 1.3x2.3 -> 1.34x2.4 cada 500 ms, ida y vuelta
       if (!s.mesh.userData.animating && !swapped) {
         const k = (1 - Math.cos(((now + s.mesh.userData.phase) / 500) * Math.PI)) / 2
@@ -642,9 +752,9 @@ async function launchExperience() {
     camera.updateMatrixWorld()
 
     placeIntro()
-    moveAllToRandomPoints()
+    placeAllAtRandomPoints()
     salcotines.forEach((s) => { s.mesh.visible = true })
-    moveIntervalId = setInterval(moveAllToRandomPoints, CONFIG.MOVE_INTERVAL_MS)
+    moveIntervalId = setInterval(dashAllToRandomPoints, CONFIG.MOVE_INTERVAL_MS)
     $('loading-screen').classList.add('hidden')
     $('thermo').classList.remove('hidden')
     scheduleIntroHide()
