@@ -3,11 +3,10 @@
 //
 // Escena original:
 //   - intro.png  : cartel "¡Busca a Salcotín!" frente a la cámara
-//   - 1.png (x3) : tres Salcotín que flotan alrededor, cambian de
-//                  lugar cada 5sg de forma aleatorea
-//   - Al tocar uno: los tres se encogen, y aparece el premio de ese
-//     Salcotín seleccionado (2.png, 3.png o 4.png) y sale confeti con
-//     una mezcla de amarillo.png, celeste.png y rosa.png
+//   - 1.png      : un Salcotín que flota alrededor y cambia de
+//                  lugar cada 5sg de forma aleatoria
+//   - Al tocarlo : se encoge, aparece el premio (ASSETS.prize)
+//     y sale confeti con una mezcla de amarillo.png, celeste.png y rosa.png
 //
 // En computador (sin sensores) se mira alrededor arrastrando con el mouse en la pantalla.
 // ============================================================
@@ -47,7 +46,7 @@ const CONFIG = {
 const ASSETS = {
   intro: 'assets/intro.png',
   salcotin: 'assets/1.png',
-  prizes: ['assets/2.png', 'assets/3.png', 'assets/4.png'],
+  prize: 'assets/2.png',
   confetti: ['assets/amarillo.png', 'assets/celeste.png', 'assets/rosa.png'],
 }
 
@@ -155,14 +154,14 @@ async function loadAllTextures() {
   const [intro, salcotin, ...rest] = await Promise.all([
     loadTexture(loader, ASSETS.intro),
     loadTexture(loader, ASSETS.salcotin),
-    ...ASSETS.prizes.map((u) => loadTexture(loader, u)),
+    loadTexture(loader, ASSETS.prize),
     ...ASSETS.confetti.map((u) => loadTexture(loader, u)),
   ])
   textures = {
     intro,
     salcotin,
-    prizes: rest.slice(0, ASSETS.prizes.length),
-    confetti: rest.slice(ASSETS.prizes.length),
+    prizes: rest.slice(0, 1),
+    confetti: rest.slice(1),
   }
 }
 
@@ -365,7 +364,7 @@ function onCatch(caught) {
   clearTimeout(introHideTimeoutId)
   hideHint()
 
-  // los tres Salcotín se encogen
+  // Salcotín se encoge
   for (const s of salcotines) {
     animateScale(s.mesh, {
       from: s.mesh.scale.x,
@@ -375,7 +374,7 @@ function onCatch(caught) {
     })
   }
 
-  // aparece el premio de este Salcotín
+  // aparece el premio
   caught.prize.position.copy(caught.mesh.position)
   faceCamera(caught.prize)
   caught.prize.visible = true
